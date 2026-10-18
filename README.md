@@ -51,7 +51,7 @@ Bitcoin's 90-day correlation with the S&P 500 averaged **0.06 before 2020** and 
    ```r
    install.packages(c("tidyverse", "tidyquant", "zoo", "plotly", "rmarkdown"))
    ```
-3. Click **Knit**. The first run downloads the price data from Yahoo Finance and saves it as `market_prices.csv` (not tracked in git, since you can always download it again).
+3. Click **Knit**. The first run downloads the price data from Yahoo Finance and saves it as `market_prices.csv` 
 
 ## Repo contents
 
@@ -62,6 +62,3 @@ README.md
 .gitignore
 ```
 
-## My role
-
-[My role: ...]
