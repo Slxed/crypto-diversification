@@ -1,0 +1,17 @@
+# Data (re-downloadable from Yahoo Finance when the Rmd runs)
+market_prices.csv
+
+# R / RStudio
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+*.Rproj
+analysis_cache/
+analysis_files/
+analysis.html
+rsconnect/
+
+# OS
+.DS_Store
+Thumbs.db

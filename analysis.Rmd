@@ -1,0 +1,560 @@
+---
+title: "Diversification and Crypto: Does Everything Move Together in a Crash?"
+subtitle: "STAT 436 Project - Milestone 3"
+output:
+  html_document:
+    self_contained: true
+    toc: true
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  warning = FALSE,
+  message = FALSE
+)
+
+library(tidyverse)
+library(tidyquant)
+library(zoo)
+library(plotly)
+
+background_color <- "#F4F7FB"
+panel_color <- "#FFFFFF"
+text_color <- "#24364B"
+muted_color <- "#6B7C93"
+grid_color <- "#DCE4EE"
+
+navy <- "#173F5F"
+teal <- "#2A9D8F"
+orange <- "#E76F51"
+purple <- "#7B61A8"
+gray_soft <- "#B9C3CE"
+
+base_layout <- function(p, main_title, subtitle) {
+  p %>%
+    layout(
+      title = list(
+        text = paste0(
+          "<b>", main_title, "</b>",
+          "<br>",
+          "<span style='font-size:14px;color:", muted_color, ";'>",
+          subtitle,
+          "</span>"
+        ),
+        x = 0.01,
+        xanchor = "left"
+      ),
+      paper_bgcolor = background_color,
+      plot_bgcolor = panel_color,
+      font = list(
+        color = text_color,
+        family = "Arial"
+      )
+    ) %>%
+    config(
+      displaylogo = FALSE,
+      responsive = TRUE,
+      modeBarButtonsToRemove = c("lasso2d", "select2d")
+    )
+}
+```
+
+```{r data, include=FALSE}
+assets <- tibble(
+  symbol = c(
+    "BTC-USD",
+    "ETH-USD",
+    "^GSPC",
+    "^IXIC",
+    "GLD",
+    "TLT",
+    "USO",
+    "UUP"
+  ),
+  asset = c(
+    "Bitcoin",
+    "Ethereum",
+    "S&P 500",
+    "Nasdaq",
+    "Gold",
+    "Long-Term Bonds",
+    "Oil",
+    "U.S. Dollar"
+  ),
+  group = c(
+    "Crypto",
+    "Crypto",
+    "Stock market",
+    "Stock market",
+    "Traditional diversifier",
+    "Traditional diversifier",
+    "Traditional diversifier",
+    "Traditional diversifier"
+  )
+)
+
+price_file <- "market_prices.csv"
+
+if (file.exists(price_file)) {
+  raw_prices <- read_csv(price_file)
+} else {
+  raw_prices <- tq_get(
+    assets$symbol,
+    from = "2015-01-01",
+    to = Sys.Date(),
+    get = "stock.prices"
+  ) %>%
+    select(symbol, date, adjusted)
+
+  write_csv(raw_prices, price_file)
+}
+
+market_prices <- raw_prices %>%
+  left_join(assets, by = "symbol") %>%
+  arrange(symbol, date)
+
+market_returns <- market_prices %>%
+  group_by(symbol, asset, group) %>%
+  arrange(date) %>%
+  mutate(log_return = log(adjusted / lag(adjusted))) %>%
+  ungroup() %>%
+  filter(!is.na(log_return))
+
+sp_returns <- market_returns %>%
+  filter(asset == "S&P 500") %>%
+  select(date, sp_return = log_return)
+
+comparison_assets <- assets %>%
+  filter(asset != "S&P 500") %>%
+  pull(asset)
+
+calculate_correlation <- function(asset_name, window) {
+  market_returns %>%
+    filter(asset == asset_name) %>%
+    select(date, asset_return = log_return) %>%
+    inner_join(sp_returns, by = "date") %>%
+    arrange(date) %>%
+    mutate(
+      correlation = rollapplyr(
+        cbind(asset_return, sp_return),
+        width = window,
+        FUN = function(x) cor(x[, 1], x[, 2]),
+        by.column = FALSE,
+        fill = NA
+      ),
+      asset = asset_name,
+      window = window
+    ) %>%
+    filter(!is.na(correlation))
+}
+
+bitcoin_correlation_30 <- calculate_correlation("Bitcoin", 30)
+bitcoin_correlation_90 <- calculate_correlation("Bitcoin", 90)
+
+rolling_correlation_90 <- map_dfr(
+  comparison_assets,
+  function(x) calculate_correlation(x, 90)
+)
+
+stress_periods <- tribble(
+  ~period, ~start_date, ~end_date,
+  "COVID crash", as.Date("2020-02-20"), as.Date("2020-04-30"),
+  "2022 rate hikes", as.Date("2022-03-16"), as.Date("2022-10-31"),
+  "FTX collapse", as.Date("2022-11-01"), as.Date("2022-12-31"),
+  "April 2025 tariffs", as.Date("2025-04-01"), as.Date("2025-05-31")
+)
+
+period_levels <- c("Calm markets", stress_periods$period)
+
+label_period <- function(one_date) {
+  match_row <- stress_periods %>%
+    filter(one_date >= start_date, one_date <= end_date)
+
+  if (nrow(match_row) == 0) {
+    "Calm markets"
+  } else {
+    match_row$period[1]
+  }
+}
+
+date_labels <- rolling_correlation_90 %>%
+  distinct(date) %>%
+  mutate(period = map_chr(date, label_period))
+
+event_dates <- tibble(
+  event = c("COVID crash", "Rate hikes begin", "FTX collapse", "Tariffs"),
+  date = as.Date(c("2020-03-16", "2022-03-16", "2022-11-08", "2025-04-02"))
+)
+
+asset_order <- c(
+  "Bitcoin",
+  "Ethereum",
+  "Nasdaq",
+  "Oil",
+  "Gold",
+  "Long-Term Bonds",
+  "U.S. Dollar"
+)
+```
+
+## Visualization 1: Bitcoin and the S&P 500 on one scale
+
+```{r visualization-one, fig.width=15, fig.height=8}
+indexed_prices <- market_prices %>%
+  filter(asset %in% c("Bitcoin", "S&P 500")) %>%
+  group_by(asset) %>%
+  arrange(date) %>%
+  mutate(growth = 100 * adjusted / first(adjusted)) %>%
+  ungroup()
+
+price_graph <- plot_ly() %>%
+  add_lines(
+    data = indexed_prices %>% filter(asset == "S&P 500"),
+    x = ~date,
+    y = ~growth,
+    name = "S&P 500",
+    line = list(color = teal, width = 2),
+    hovertemplate = paste(
+      "<b>S&P 500</b>",
+      "<br>Date: %{x|%B %d, %Y}",
+      "<br>Value of $100: $%{y:,.0f}",
+      "<extra></extra>"
+    )
+  ) %>%
+  add_lines(
+    data = indexed_prices %>% filter(asset == "Bitcoin"),
+    x = ~date,
+    y = ~growth,
+    name = "Bitcoin",
+    line = list(color = orange, width = 2),
+    hovertemplate = paste(
+      "<b>Bitcoin</b>",
+      "<br>Date: %{x|%B %d, %Y}",
+      "<br>Value of $100: $%{y:,.0f}",
+      "<extra></extra>"
+    )
+  ) %>%
+  layout(
+    yaxis = list(
+      title = "Value of $100 invested (log scale)",
+      type = "log",
+      tickprefix = "$",
+      separatethousands = TRUE,
+      gridcolor = grid_color,
+      zeroline = FALSE
+    )
+  )
+
+correlation_graph <- plot_ly() %>%
+  add_lines(
+    data = bitcoin_correlation_30,
+    x = ~date,
+    y = ~correlation,
+    name = "30-day correlation",
+    line = list(color = gray_soft, width = 1),
+    hovertemplate = paste(
+      "<b>30-day correlation</b>",
+      "<br>%{x|%B %d, %Y}: %{y:.2f}",
+      "<extra></extra>"
+    )
+  ) %>%
+  add_lines(
+    data = bitcoin_correlation_90,
+    x = ~date,
+    y = ~correlation,
+    name = "90-day correlation",
+    line = list(color = navy, width = 2),
+    hovertemplate = paste(
+      "<b>90-day correlation</b>",
+      "<br>%{x|%B %d, %Y}: %{y:.2f}",
+      "<extra></extra>"
+    )
+  ) %>%
+  add_segments(
+    data = event_dates,
+    x = ~date,
+    xend = ~date,
+    y = -1,
+    yend = 1,
+    line = list(color = orange, width = 1, dash = "dot"),
+    showlegend = FALSE,
+    hoverinfo = "text",
+    text = ~event,
+    inherit = FALSE
+  ) %>%
+  add_text(
+    data = event_dates,
+    x = ~date,
+    y = -0.85,
+    text = ~event,
+    textposition = "middle right",
+    textfont = list(size = 11, color = muted_color),
+    showlegend = FALSE,
+    hoverinfo = "skip",
+    inherit = FALSE
+  ) %>%
+  layout(
+    yaxis = list(
+      title = "Correlation",
+      range = c(-1, 1),
+      tickvals = c(-1, -0.5, 0, 0.5, 1),
+      gridcolor = grid_color,
+      zeroline = TRUE,
+      zerolinecolor = muted_color
+    )
+  )
+
+subplot(
+  price_graph,
+  correlation_graph,
+  nrows = 2,
+  shareX = TRUE,
+  heights = c(0.62, 0.38),
+  titleY = TRUE,
+  margin = 0.05
+) %>%
+  base_layout(
+    "Bitcoin vs. the S&P 500",
+    "Growth of $100 above; rolling correlation of daily returns below. Higher correlation means weaker diversification."
+  ) %>%
+  layout(
+    hovermode = "x unified",
+    legend = list(orientation = "h", x = 0, y = 1.08),
+    xaxis = list(
+      showgrid = FALSE,
+      rangeselector = list(
+        x = 1,
+        xanchor = "right",
+        y = 1.12,
+        bgcolor = "#EAF0F6",
+        activecolor = teal,
+        bordercolor = grid_color,
+        borderwidth = 1,
+        buttons = list(
+          list(count = 1, label = "1Y", step = "year", stepmode = "backward"),
+          list(count = 3, label = "3Y", step = "year", stepmode = "backward"),
+          list(count = 5, label = "5Y", step = "year", stepmode = "backward"),
+          list(step = "all", label = "All")
+        )
+      )
+    ),
+    xaxis2 = list(title = "Date", showgrid = FALSE),
+    margin = list(l = 95, r = 60, t = 135, b = 70)
+  )
+```
+
+## Visualization 2: Correlation heatmap across every asset
+
+```{r visualization-two, fig.width=15, fig.height=6}
+heatmap_data <- rolling_correlation_90 %>%
+  mutate(month = floor_date(date, "month")) %>%
+  group_by(asset, month) %>%
+  summarise(correlation = mean(correlation), .groups = "drop")
+
+heatmap_table <- heatmap_data %>%
+  mutate(month = as.character(month)) %>%
+  pivot_wider(names_from = month, values_from = correlation) %>%
+  arrange(match(asset, asset_order))
+
+heatmap_dates <- as.Date(names(heatmap_table)[-1])
+heatmap_assets <- heatmap_table$asset
+heatmap_values <- as.matrix(heatmap_table[, -1])
+
+plot_ly(
+  x = heatmap_dates,
+  y = heatmap_assets,
+  z = heatmap_values,
+  type = "heatmap",
+  zmin = -1,
+  zmax = 1,
+  colorscale = list(
+    list(0, "#3B4CC0"),
+    list(0.5, "#F7F9FC"),
+    list(1, orange)
+  ),
+  colorbar = list(
+    title = list(text = "Correlation<br>with S&P 500"),
+    tickvals = c(-1, -0.5, 0, 0.5, 1)
+  ),
+  hovertemplate = paste(
+    "<b>%{y}</b>",
+    "<br>Month: %{x|%B %Y}",
+    "<br>Correlation: %{z:.2f}",
+    "<extra></extra>"
+  )
+) %>%
+  base_layout(
+    "Correlation with the S&P 500 over time",
+    "Each column is one month. Warm = moves with stocks (weak diversifier), cool = moves against stocks."
+  ) %>%
+  layout(
+    xaxis = list(title = "Month", showgrid = FALSE),
+    yaxis = list(title = "", automargin = TRUE),
+    annotations = list(
+      list(
+        text = paste(
+          "White gap before 2018 = Ethereum had not launched yet, not missing data.",
+          "Nasdaq is included as a reference for what no diversification looks like."
+        ),
+        x = 0,
+        y = -0.22,
+        xref = "paper",
+        yref = "paper",
+        showarrow = FALSE,
+        xanchor = "left",
+        font = list(size = 12, color = muted_color)
+      )
+    ),
+    margin = list(l = 140, r = 90, t = 100, b = 90)
+  )
+```
+
+## Visualization 3: Does diversification hold up during market stress?
+
+```{r visualization-three, fig.width=15, fig.height=7}
+stress_summary <- rolling_correlation_90 %>%
+  left_join(date_labels, by = "date") %>%
+  group_by(period, asset) %>%
+  summarise(average_correlation = mean(correlation), .groups = "drop") %>%
+  mutate(
+    period = factor(period, levels = period_levels),
+    asset = factor(asset, levels = asset_order)
+  )
+
+plot_ly(
+  data = stress_summary,
+  x = ~asset,
+  y = ~average_correlation,
+  color = ~period,
+  colors = c(gray_soft, navy, teal, orange, purple),
+  type = "bar",
+  hovertemplate = paste(
+    "<b>%{x}</b>",
+    "<br>Period: %{fullData.name}",
+    "<br>Average correlation: %{y:.2f}",
+    "<extra></extra>"
+  )
+) %>%
+  base_layout(
+    "Does diversification weaken when markets are under stress?",
+    "Average 90-day correlation with the S&P 500. Gray bar is the calm-market baseline for comparison."
+  ) %>%
+  layout(
+    barmode = "group",
+    legend = list(orientation = "h", x = 0, y = 1.1),
+    xaxis = list(title = "", tickangle = -20),
+    yaxis = list(
+      title = "Average correlation",
+      range = c(-1, 1),
+      tickvals = c(-1, -0.5, 0, 0.5, 1),
+      gridcolor = grid_color,
+      zeroline = TRUE,
+      zerolinecolor = muted_color
+    ),
+    margin = list(l = 80, r = 50, t = 130, b = 110)
+  )
+```
+
+## Visualization 4: Risk versus diversification
+
+```{r visualization-four, fig.width=13, fig.height=7}
+volatility_summary <- market_returns %>%
+  filter(asset %in% comparison_assets) %>%
+  semi_join(sp_returns, by = "date") %>%
+  group_by(asset, group) %>%
+  summarise(
+    annualized_volatility = sd(log_return) * sqrt(252) * 100,
+    .groups = "drop"
+  )
+
+correlation_summary <- rolling_correlation_90 %>%
+  group_by(asset) %>%
+  summarise(average_correlation = mean(correlation), .groups = "drop")
+
+risk_summary <- correlation_summary %>%
+  left_join(volatility_summary, by = "asset")
+
+plot_ly(
+  data = risk_summary,
+  x = ~average_correlation,
+  y = ~annualized_volatility,
+  color = ~group,
+  colors = c(
+    "Crypto" = orange,
+    "Stock market" = navy,
+    "Traditional diversifier" = teal
+  ),
+  text = ~asset,
+  type = "scatter",
+  mode = "markers+text",
+  textposition = "top center",
+  textfont = list(size = 12, color = text_color),
+  marker = list(size = 15, line = list(color = "#FFFFFF", width = 1.5)),
+  hovertemplate = paste(
+    "<b>%{text}</b>",
+    "<br>Average correlation: %{x:.2f}",
+    "<br>Annualized volatility: %{y:.1f}%",
+    "<extra></extra>"
+  )
+) %>%
+  base_layout(
+    "Risk versus diversification",
+    "Bottom-left is the ideal corner: low correlation with stocks and low volatility."
+  ) %>%
+  layout(
+    legend = list(orientation = "h", x = 0, y = 1.1),
+    xaxis = list(
+      title = "Average 90-day correlation with the S&P 500 (left = better diversifier)",
+      range = c(-1, 1),
+      gridcolor = grid_color,
+      zeroline = TRUE,
+      zerolinecolor = muted_color
+    ),
+    yaxis = list(
+      title = "Annualized volatility, % (higher = riskier)",
+      rangemode = "tozero",
+      gridcolor = grid_color
+    ),
+    margin = list(l = 90, r = 60, t = 120, b = 90)
+  )
+```
+
+
+
+```{r numbers-for-writeup, include=FALSE}
+stress_summary %>%
+  filter(asset %in% c("Bitcoin", "Ethereum", "Gold", "Long-Term Bonds")) %>%
+  pivot_wider(names_from = period, values_from = average_correlation)
+
+risk_summary %>%
+  arrange(desc(annualized_volatility))
+
+rolling_correlation_90 %>%
+  mutate(era = if_else(date < as.Date("2020-01-01"), "Before 2020", "2020 onward")) %>%
+  group_by(asset, era) %>%
+  summarise(average_correlation = mean(correlation), .groups = "drop") %>%
+  pivot_wider(names_from = era, values_from = average_correlation)
+```
+
+<style>
+.main-container {
+  max-width: 1500px !important;
+  width: 96% !important;
+}
+
+.plotly {
+  width: 100% !important;
+}
+
+body {
+  background-color: #F4F7FB;
+  color: #24364B;
+}
+
+h1,
+h2 {
+  color: #173F5F;
+}
+</style>
