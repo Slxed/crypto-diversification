@@ -33,5 +33,3 @@ install.packages(c("tidyverse", "tidyquant", "zoo", "plotly", "rmarkdown"))
 ```
 
 The first run downloads the prices and saves them to `market_prices.csv`. The rendered report lives in `docs/index.html`, which is what GitHub Pages serves.
-
-My part: [fill in]
