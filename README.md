@@ -1,64 +1,37 @@
 # Does Crypto Still Diversify a Stock Portfolio?
 
-A team project for STAT 436 (Statistical Data Visualization) at UW–Madison, by Aditya Muttagi, TaeYeon Lee, Shivani Potnuru, and William Day.
+This was our team project for STAT 436 at UW-Madison. The team was Aditya Muttagi, TaeYeon Lee, Shivani Potnuru, and me (William Day).
 
-**Live report:** https://slxed.github.io/crypto-diversification/
+Live report: https://slxed.github.io/crypto-diversification/
 
-## The question
+People like to call Bitcoin "digital gold," the idea being that it moves on its own and lowers your risk if you hold it next to stocks. We wanted to see if that's still true now that big institutions are buying it, or if it just moves with the stock market now.
 
-Bitcoin is often pitched as "digital gold," something that moves on its own and lowers your risk when you hold it next to stocks. As big institutions have started buying crypto, has it started moving with the stock market instead? If it rises and falls with the S&P 500, it stops being much of a hedge.
+## What we did
 
-## Data
+We pulled daily adjusted closing prices from Yahoo Finance with the `tidyquant` R package, from 2015 to now, for Bitcoin, Ethereum, the S&P 500, the Nasdaq, gold (GLD), long-term bonds (TLT), oil (USO), and the U.S. dollar (UUP).
 
-Daily adjusted closing prices from Yahoo Finance, pulled with the `tidyquant` R package, from 2015 to the present, for eight assets:
+We turned the prices into daily log returns, since correlating two prices that both trend up can make unrelated things look connected. Then we calculated rolling 30-day and 90-day correlations between each asset and the S&P 500, and compared calm markets to four stress periods: the COVID crash, the 2022 rate hikes, the FTX collapse, and the April 2025 tariffs.
 
-| Asset | Ticker |
-|---|---|
-| Bitcoin | BTC-USD |
-| Ethereum | ETH-USD |
-| S&P 500 | ^GSPC |
-| Nasdaq | ^IXIC |
-| Gold | GLD |
-| Long-term U.S. Treasury bonds | TLT |
-| Oil | USO |
-| U.S. dollar | UUP |
+The report has four interactive plotly charts:
+1. Bitcoin vs. the S&P 500, with growth of $100 on top and the rolling correlation underneath
+2. A heatmap of every asset's correlation with the S&P 500, month by month
+3. Average correlation in calm markets vs. each stress period
+4. Each asset's average correlation plotted against its volatility
 
-## Method
+## What we found
 
-- Converted prices to daily log returns. Correlating raw prices that both trend upward can make two unrelated assets look connected, so returns are the fairer comparison.
-- Calculated rolling 30-day and 90-day correlations between each asset and the S&P 500.
-- Compared calm markets to four stress periods: the COVID crash (2020), the 2022 rate hikes, the FTX collapse (late 2022), and the April 2025 tariffs.
+Bitcoin's correlation with the S&P 500 averaged 0.06 before 2020 and 0.37 after, with stretches above 0.5 in 2021-2023. It went up even more during the stress periods, which is exactly when you'd want a diversifier to work. Bonds and the dollar often stayed negatively correlated with stocks. So Bitcoin isn't a stock, but it doesn't really move on its own anymore either.
 
-## Visualizations
+Those numbers are from our write-up. The data gets re-downloaded every time the report is knit, so they can shift a little.
 
-All four charts are interactive (plotly), so you can hover for exact values, zoom, and pan.
+## Running it
 
-1. **Bitcoin vs. the S&P 500:** growth of $100 in each on a log scale, with the 30- and 90-day rolling correlation underneath and the stress events marked.
-2. **Correlation heatmap:** one row per asset, one column per month, colored by its 90-day correlation with the S&P 500.
-3. **Stress periods:** grouped bars comparing each asset's average correlation in calm markets vs. each stress period.
-4. **Risk vs. diversification:** each asset's average correlation with the S&P 500 plotted against its annualized volatility.
+Open `analysis.Rmd` in RStudio, install the packages, and hit Knit:
 
-## Key finding
-
-Bitcoin's 90-day correlation with the S&P 500 averaged **0.06 before 2020** and **0.37 after**, with stretches above **0.5 in 2021–2023**. It went up even more during the stress periods, which is exactly when you'd want a diversifier to hold up. Long-term bonds and the U.S. dollar, on the other hand, often stayed negatively correlated with stocks. Bitcoin hasn't turned into a stock, but it no longer moves independently of them.
-
-(These numbers come from our Milestone 3 write-up. Since the report pulls fresh data from Yahoo Finance every time it's knit, the exact values can shift a little.)
-
-## How to run it
-
-1. Open `analysis.Rmd` in RStudio.
-2. Install the packages:
-   ```r
-   install.packages(c("tidyverse", "tidyquant", "zoo", "plotly", "rmarkdown"))
-   ```
-3. Click **Knit**. The first run downloads the price data from Yahoo Finance and saves it as `market_prices.csv` 
-
-## Repo contents
-
-```
-analysis.Rmd      R Markdown source for the report
-docs/index.html   rendered report, served by GitHub Pages
-README.md
-.gitignore
+```r
+install.packages(c("tidyverse", "tidyquant", "zoo", "plotly", "rmarkdown"))
 ```
 
+The first run downloads the prices and saves them to `market_prices.csv`. The rendered report lives in `docs/index.html`, which is what GitHub Pages serves.
+
+My part: [fill in]
