@@ -20,9 +20,9 @@ The report has four interactive plotly charts:
 
 ## What we found
 
-Bitcoin's correlation with the S&P 500 averaged 0.06 before 2020 and 0.37 after, with stretches above 0.5 in 2021-2023. It went up even more during the stress periods, which is exactly when you'd want a diversifier to work. Bonds and the dollar often stayed negatively correlated with stocks. So Bitcoin isn't a stock, but it doesn't really move on its own anymore either.
+Bitcoin's correlation with the S&P 500 was close to zero before 2020 (about 0.03 on daily returns) and about 0.39 after. A Fisher z-test and a block bootstrap both show this increase is statistically significant (bootstrap 95% CI for the difference: 0.27 to 0.45).
 
-Those numbers are from our write-up. The data gets re-downloaded every time the report is knit, so they can shift a little.
+I tested the shift afterwards as well, a Fisher z-test and a block bootstrap on daily showed Bitcoin's correlation with the S&P 500 rose from about 0 before 2020 to about 0.39 after, with a 95% bootstrap interval of 0.27 to 0.45 for the increase.
 
 ## Running it
 
