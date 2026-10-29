@@ -2,8 +2,6 @@
 
 This was a team project for STAT 436 at UW-Madison. The team was Aditya Muttagi, TaeYeon Lee, Shivani Potnuru, and me (William Day).
 
-Live report: https://slxed.github.io/crypto-diversification/
-
 People like to call Bitcoin "digital gold," the idea being that it moves on its own and lowers your risk if you hold it next to stocks. We wanted to see if that's still true now that big institutions are buying it, or if it just moves with the stock market now.
 
 ## What we did
@@ -17,6 +15,9 @@ The report has four interactive plotly charts:
 2. A heatmap of every asset's correlation with the S&P 500, month by month
 3. Average correlation in calm markets vs. each stress period
 4. Each asset's average correlation plotted against its volatility
+
+Live report: https://slxed.github.io/crypto-diversification/
+The plots are interactive, and quite fun, so give them a try!
 
 ## What we found
 
