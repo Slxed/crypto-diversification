@@ -1,6 +1,6 @@
 # Does Crypto Still Diversify a Stock Portfolio?
 
-This was our team project for STAT 436 at UW-Madison. The team was Aditya Muttagi, TaeYeon Lee, Shivani Potnuru, and me (William Day).
+This was a team project for STAT 436 at UW-Madison. The team was Aditya Muttagi, TaeYeon Lee, Shivani Potnuru, and me (William Day).
 
 Live report: https://slxed.github.io/crypto-diversification/
 
@@ -21,8 +21,6 @@ The report has four interactive plotly charts:
 ## What we found
 
 Bitcoin's correlation with the S&P 500 was close to zero before 2020 (about 0.03 on daily returns) and about 0.39 after. A Fisher z-test and a block bootstrap both show this increase is statistically significant (bootstrap 95% CI for the difference: 0.27 to 0.45).
-
-I tested the shift afterwards as well, a Fisher z-test and a block bootstrap on daily showed Bitcoin's correlation with the S&P 500 rose from about 0 before 2020 to about 0.39 after, with a 95% bootstrap interval of 0.27 to 0.45 for the increase.
 
 ## Running it
 
